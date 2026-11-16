@@ -1,7 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const authenticate = require("../middleware/auth");
-const { sendOrderNotification, sendCancelNotification } = require("../services/order-notify");
+const { sendNtfy, sendCancelNotification } = require("../services/order-notify");
 
 const router = express.Router();
 
@@ -259,8 +259,13 @@ router.post("/", async (req, res) => {
     const created = rows[0];
 
     await client.query("COMMIT");
-    // Fire the order-confirmation notification without blocking the response.
-    sendOrderNotification(created);
+    // Wait for the ntfy request so serverless deployments don't drop it, but never fail the order.
+    try {
+      await sendNtfy(created);
+    } catch (notifyErr) {
+      const msg = notifyErr && notifyErr.message ? notifyErr.message : String(notifyErr);
+      console.error(`Order #${created.id} placed, but ntfy notification failed: ${msg}`);
+    }
     res.status(201).json({ order: created });
   } catch (err) {
     await client.query("ROLLBACK");
