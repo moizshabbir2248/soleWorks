@@ -1,0 +1,548 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard - SOLEWORKS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body { font-family: 'Inter', sans-serif; }
+  .glass { backdrop-filter: blur(8px); }
+  @media (max-width: 640px) {
+    #orders-body select { min-height: 44px; width: 100%; min-width: 140px; }
+    #product-list button { min-height: 44px; }
+  }
+</style>
+</head>
+<body class="min-h-screen bg-neutral-950 text-neutral-100">
+  <!-- Login -->
+  <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-8 shadow-2xl">
+      <div class="mb-6 text-center">
+        <h1 class="text-2xl font-bold tracking-tight">Admin Access</h1>
+        <p class="text-sm text-neutral-400 mt-2">Enter your admin password to open the dashboard</p>
+      </div>
+      <form id="pin-form" class="space-y-4">
+        <div>
+          <label for="pin" class="block text-sm font-medium text-neutral-300 mb-1">Admin Password</label>
+          <input id="pin" type="password" autocomplete="current-password"
+            class="w-full rounded-xl bg-neutral-950 border border-neutral-700 px-4 py-3 text-center text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            placeholder="Enter Admin Password" required>
+        </div>
+        <button id="login-btn" type="submit"
+          class="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold py-3 transition">Login</button>
+        <p id="login-error" class="text-sm text-red-400 min-h-[1.25rem] text-center"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard-view" class="hidden">
+    <header class="sticky top-0 z-30 border-b border-neutral-800 bg-neutral-950/90 glass">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold">SOLEWORKS Admin Dashboard</h1>
+          <p class="text-xs sm:text-sm text-neutral-400">Orders, revenue, and inventory management</p>
+        </div>
+        <button id="logout" class="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium hover:bg-neutral-800 transition">Logout</button>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <!-- Metrics -->
+      <section>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5">
+            <p class="text-sm text-neutral-400">Total Revenue (PKR)</p>
+            <p id="metric-revenue" class="mt-2 text-2xl font-bold text-emerald-400">Rs. 0</p>
+            <p class="text-xs text-neutral-500 mt-1">Excludes cancelled orders</p>
+          </div>
+          <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5">
+            <p class="text-sm text-neutral-400">Total Orders</p>
+            <p id="metric-total-orders" class="mt-2 text-2xl font-bold">0</p>
+            <p class="text-xs text-neutral-500 mt-1">All time</p>
+          </div>
+          <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5">
+            <p class="text-sm text-neutral-400">Pending Orders</p>
+            <p id="metric-pending" class="mt-2 text-2xl font-bold text-amber-400">0</p>
+            <p class="text-xs text-neutral-500 mt-1">Awaiting action</p>
+          </div>
+          <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5">
+            <p class="text-sm text-neutral-400">Completed Orders</p>
+            <p id="metric-completed" class="mt-2 text-2xl font-bold text-sky-400">0</p>
+            <p class="text-xs text-neutral-500 mt-1">Delivered</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Orders -->
+      <section class="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold">Orders Monitoring & Workflow</h2>
+            <p class="text-sm text-neutral-400">Track, confirm, ship, deliver, or cancel orders</p>
+          </div>
+          <button id="refresh-orders" class="self-start sm:self-auto rounded-lg bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-sm font-medium transition">Refresh</button>
+        </div>
+        <div id="orders-error" class="px-5 pt-3 text-sm text-red-400 min-h-[1.25rem]"></div>
+        <div class="overflow-x-auto -mx-0 sm:mx-0">
+          <table class="min-w-[980px] w-full text-sm">
+            <thead class="bg-neutral-950/60 text-neutral-300">
+              <tr>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Order ID</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Customer</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Phone</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">City</th>
+                <th class="text-left font-semibold px-4 py-3 min-w-[220px]">Address</th>
+                <th class="text-left font-semibold px-4 py-3 min-w-[240px]">Items</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Delivery</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Total</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Payment</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Status</th>
+                <th class="text-left font-semibold px-4 py-3 whitespace-nowrap">Update</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body" class="divide-y divide-neutral-800"></tbody>
+          </table>
+        </div>
+        <div id="orders-empty" class="hidden px-5 py-10 text-center text-neutral-400">No orders yet.</div>
+      </section>
+
+      <!-- Products -->
+      <section class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <div class="xl:col-span-2 bg-neutral-900 border border-neutral-800 rounded-2xl p-5 h-fit">
+          <h2 id="product-form-title" class="text-lg font-semibold mb-1">Add Product</h2>
+          <p class="text-sm text-neutral-400 mb-4">Create or update products and inventory status</p>
+          <form id="product-form" class="space-y-3">
+            <div>
+              <label class="block text-sm text-neutral-300 mb-1" for="p-title">Title</label>
+              <input id="p-title" type="text" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g. Air Max Runner">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="p-brand">Brand</label>
+                <input id="p-brand" type="text" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Nike">
+              </div>
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="p-price">Price (PKR)</label>
+                <input id="p-price" type="number" min="0" step="0.01" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="12999">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm text-neutral-300 mb-1" for="p-sizes">Sizes (comma separated)</label>
+              <input id="p-sizes" type="text" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="7, 8, 9, 10">
+            </div>
+            <div>
+              <label class="block text-sm text-neutral-300 mb-1" for="p-stock">Stock Status</label>
+              <select id="p-stock" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="1">In Stock</option>
+                <option value="0">Out of Stock</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm text-neutral-300 mb-1">Product Image</label>
+              <div class="flex items-center gap-3 flex-wrap">
+                <input id="p-image" type="file" accept="image/png,image/jpeg,image/webp" class="hidden">
+                <button type="button" id="p-browse" class="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800 transition">Choose Image</button>
+                <span id="p-filename" class="text-sm text-neutral-400">No file selected</span>
+              </div>
+              <img id="p-preview" class="hidden mt-3 h-20 w-20 object-cover rounded-lg border border-neutral-700" alt="Preview">
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button id="save-product" type="submit" class="flex-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold py-2.5 transition">Add Product</button>
+              <button id="cancel-edit" type="button" class="hidden rounded-lg border border-neutral-700 px-4 py-2.5 hover:bg-neutral-800 transition">Cancel</button>
+            </div>
+            <p id="form-msg" class="text-sm text-emerald-400 min-h-[1.25rem]"></p>
+            <p id="form-error" class="text-sm text-red-400 min-h-[1.25rem]"></p>
+          </form>
+        </div>
+
+        <div class="xl:col-span-3 bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+          <div class="px-5 py-4 border-b border-neutral-800 flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Products & Inventory</h2>
+              <p class="text-sm text-neutral-400"><span id="product-count">0</span> products</p>
+            </div>
+            <button id="refresh-products" class="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-sm font-medium transition">Refresh</button>
+          </div>
+          <div id="products-error" class="px-5 pt-3 text-sm text-red-400 min-h-[1.25rem]"></div>
+          <div id="product-list" class="divide-y divide-neutral-800"></div>
+          <div id="products-empty" class="hidden px-5 py-10 text-center text-neutral-400">No products yet.</div>
+        </div>
+      </section>
+
+      <!-- Reviews -->
+      <section class="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold">Customer Reviews</h2>
+            <p class="text-sm text-neutral-400">Manage and delete saved storefront reviews</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="refresh-reviews" class="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-sm font-medium transition">Refresh</button>
+            <button id="clear-reviews" class="rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10 px-4 py-2 text-sm font-medium transition">Clear All</button>
+          </div>
+        </div>
+        <div id="reviews-list" class="divide-y divide-neutral-800"></div>
+        <div id="reviews-empty" class="hidden px-5 py-10 text-center text-neutral-400">No saved reviews.</div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-neutral-800 border border-neutral-700 text-neutral-100 px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition"></div>
+
+<script>
+const API = "/api";
+const $ = (id) => document.getElementById(id);
+const STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
+let productsCache = [];
+let editingId = null;
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.remove("opacity-0");
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.add("opacity-0"), 2200);
+}
+function getToken() { return localStorage.getItem("admin_token"); }
+function setToken(token) { localStorage.setItem("admin_token", token); document.cookie = "admin_token=" + encodeURIComponent(token) + "; path=/; max-age=" + (7*24*60*60); }
+function clearToken() { localStorage.removeItem("admin_token"); document.cookie = "admin_token=; path=/; max-age=0"; }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+function money(n) { const v = Number(n)||0; return "Rs. " + v.toLocaleString("en-PK", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+
+function showDashboard() {
+  $("login-view").classList.add("hidden");
+  $("dashboard-view").classList.remove("hidden");
+  loadAll();
+}
+function showLogin() {
+  $("dashboard-view").classList.add("hidden");
+  $("login-view").classList.remove("hidden");
+}
+async function loadAll() { await Promise.all([loadOrders(), loadProducts(), loadReviewsAdmin()]); }
+
+async function api(path, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  const token = getToken();
+  if (token) headers.Authorization = "Bearer " + token;
+  if (!(opts.body instanceof FormData) && opts.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+  const res = await fetch(API + path, Object.assign({}, opts, { headers }));
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { clearToken(); showLogin(); throw new Error(data.message || "Unauthorized"); }
+  if (!res.ok) throw new Error(data.message || "Request failed");
+  return data;
+}
+
+$("pin-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("login-error").textContent = "";
+  const password = $("pin").value.trim();
+  if (!password) { $("login-error").textContent = "Password is required."; return; }
+  const btn = $("login-btn"); btn.disabled = true;
+  try {
+    const data = await api("/admin/pin-login", { method: "POST", body: JSON.stringify({ password }) });
+    setToken(data.token);
+    $("pin").value = "";
+    showDashboard();
+  } catch (err) {
+    $("login-error").textContent = err.message || "Invalid password.";
+  } finally { btn.disabled = false; }
+});
+$("logout").addEventListener("click", () => { clearToken(); showLogin(); });
+
+function statusBadge(status) {
+  const s = String(status || "pending").toLowerCase();
+  const map = {
+    pending: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    confirmed: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    shipped: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+    delivered: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+    cancelled: "bg-red-500/15 text-red-300 border-red-500/30",
+  };
+  return `<span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border ${map[s] || map.pending} capitalize">${esc(s)}</span>`;
+}
+function paymentLabel(method) {
+  const m = String(method || '').toLowerCase();
+  if (m === 'cod_advance') return 'Cash on Delivery (Rs. 500 Advance)';
+  if (m === 'bank_transfer' || m === 'online') return 'Online Bank Payment';
+  if (m === 'local_pickup') return 'Local Area Pickup';
+  if (m === 'cod' || m === 'cash_on_delivery') return 'Cash on Delivery';
+  return method || '-';
+}
+
+async function loadOrders() {
+  $("orders-error").textContent = "";
+  try {
+    const data = await api("/orders");
+    renderOrders(data.orders || []);
+  } catch (err) { $("orders-error").textContent = err.message; }
+}
+
+function renderOrders(orders) {
+  const tbody = $("orders-body");
+  tbody.innerHTML = "";
+  $("orders-empty").classList.toggle("hidden", orders.length !== 0);
+  let revenue = 0, pending = 0, completed = 0;
+  orders.forEach(o => {
+    const st = String(o.order_status || "pending").toLowerCase();
+    if (st !== "cancelled") revenue += Number(o.total_amount) || 0;
+    if (st === "pending") pending++;
+    if (st === "delivered") completed++;
+    const items = Array.isArray(o.items) ? o.items : [];
+    const itemsHtml = items.length ? items.map(it => `${esc(it.title || "Item")}${it.size ? ` (Size: ${esc(it.size)})` : ""} x${Number(it.quantity||1)}`).join("<br>") : "-";
+    const addr = [o.address, o.postal_code].filter(Boolean).map(esc).join(", ");
+    const tr = document.createElement("tr");
+    tr.className = "align-top hover:bg-neutral-800/30";
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-semibold whitespace-nowrap">#${esc(o.id)}</td>
+      <td class="px-4 py-3">
+        <div class="font-medium">${esc(o.customer_name || "-")}</div>
+        <div class="text-xs text-neutral-400">${esc(o.email || "")}</div>
+      </td>
+      <td class="px-4 py-3 whitespace-nowrap">${esc(o.phone || "-")}</td>
+      <td class="px-4 py-3 whitespace-nowrap">${esc(o.city || "-")}</td>
+      <td class="px-4 py-3 text-neutral-300">${addr || "-"}</td>
+      <td class="px-4 py-3 text-neutral-300">${itemsHtml}</td>
+      <td class="px-4 py-3 whitespace-nowrap">${money(o.delivery_charges || 0)}</td>
+      <td class="px-4 py-3 font-semibold whitespace-nowrap text-emerald-400">${money(o.total_amount)}</td>
+      <td class="px-4 py-3">${esc(paymentLabel(o.payment_method))}</td>
+      <td class="px-4 py-3" data-badge>${statusBadge(st)}</td>
+      <td class="px-4 py-3">
+        <select data-order-status="${o.id}" class="rounded-lg bg-neutral-950 border border-neutral-700 px-2.5 py-2.5 text-sm min-h-[44px] min-w-[140px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          ${STATUSES.map(s => `<option value="${s}" ${s===st?"selected":""}>${s[0].toUpperCase()+s.slice(1)}</option>`).join("")}
+        </select>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  $("metric-revenue").textContent = money(revenue);
+  $("metric-total-orders").textContent = String(orders.length);
+  $("metric-pending").textContent = String(pending);
+  $("metric-completed").textContent = String(completed);
+
+  tbody.querySelectorAll("[data-order-status]").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      const id = sel.dataset.orderStatus;
+      const status = sel.value;
+      const prev = sel.getAttribute("data-prev") || status;
+      if (status === "cancelled" && !confirm(`Permanently delete Order #${id}? This cannot be undone.`)) {
+        sel.value = prev;
+        return;
+      }
+      sel.disabled = true;
+      try {
+        const data = await api(`/orders/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) });
+        if (data.deleted) {
+          toast(`Order #${id} deleted`);
+        } else {
+          toast(`Order #${id} updated to ${data.order.order_status}`);
+        }
+        // refresh orders and metrics
+        loadOrders();
+      } catch (err) {
+        alert(err.message);
+        sel.value = prev;
+      } finally { sel.disabled = false; }
+    });
+    sel.setAttribute("data-prev", sel.value);
+  });
+}
+
+$("refresh-orders").addEventListener("click", loadOrders);
+
+async function loadProducts() {
+  $("products-error").textContent = "";
+  try {
+    const data = await api("/products");
+    productsCache = data.products || [];
+    renderProducts(productsCache);
+  } catch (err) { $("products-error").textContent = err.message; }
+}
+
+function renderProducts(products) {
+  $("product-count").textContent = String(products.length);
+  const list = $("product-list");
+  list.innerHTML = "";
+  $("products-empty").classList.toggle("hidden", products.length !== 0);
+  products.forEach(p => {
+    const img = (p.images && p.images[0]) || "";
+    const inStock = Number(p.stock) > 0;
+    const row = document.createElement("div");
+    row.className = "p-4 flex flex-col sm:flex-row sm:items-center gap-4";
+    row.innerHTML = `
+      <img src="${esc(img)}" alt="" class="h-16 w-16 rounded-lg object-cover bg-neutral-800 border border-neutral-700" onerror="this.style.visibility='hidden'">
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="font-semibold truncate">${esc(p.title)}</h3>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300">${esc(p.brand)}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${inStock ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/15 text-red-300 border border-red-500/30'}">${inStock ? 'In Stock' : 'Out of Stock'}</span>
+        </div>
+        <div class="text-sm text-neutral-400 mt-1">${money(p.price)} · Sizes: ${esc((p.sizes||[]).join(', ') || '-')}</div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button data-edit="${p.id}" class="rounded-lg border border-neutral-700 px-3 py-2.5 min-h-[44px] text-sm hover:bg-neutral-800 transition">Edit</button>
+        <button data-del="${p.id}" class="rounded-lg border border-red-500/40 text-red-300 px-3 py-2.5 min-h-[44px] text-sm hover:bg-red-500/10 transition">Delete</button>
+      </div>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => editProduct(Number(b.dataset.edit))));
+  list.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => deleteProduct(Number(b.dataset.del))));
+}
+
+$("refresh-products").addEventListener("click", loadProducts);
+$("p-browse").addEventListener("click", () => $("p-image").click());
+$("p-image").addEventListener("change", () => {
+  const f = $("p-image").files[0];
+  if (!f) return;
+  $("p-filename").textContent = f.name;
+  const prev = $("p-preview");
+  prev.src = URL.createObjectURL(f);
+  prev.classList.remove("hidden");
+});
+
+function resetProductForm() {
+  editingId = null;
+  $("product-form").reset();
+  $("p-stock").value = "1";
+  $("p-filename").textContent = "No file selected";
+  $("p-preview").classList.add("hidden");
+  $("p-preview").removeAttribute("src");
+  $("save-product").textContent = "Add Product";
+  $("product-form-title").textContent = "Add Product";
+  $("cancel-edit").classList.add("hidden");
+  $("form-error").textContent = ""; $("form-msg").textContent = "";
+}
+$("cancel-edit").addEventListener("click", resetProductForm);
+
+function editProduct(id) {
+  const p = productsCache.find(x => Number(x.id) === Number(id));
+  if (!p) return;
+  editingId = id;
+  $("p-title").value = p.title || "";
+  $("p-brand").value = p.brand || "";
+  $("p-price").value = p.price != null ? p.price : "";
+  $("p-sizes").value = (p.sizes || []).join(", ");
+  $("p-stock").value = Number(p.stock) > 0 ? "1" : "0";
+  $("p-filename").textContent = (p.images && p.images[0]) ? "Keep current image (choose new to replace)" : "No file selected";
+  const prev = $("p-preview");
+  if (p.images && p.images[0]) { prev.src = p.images[0]; prev.classList.remove("hidden"); }
+  else { prev.classList.add("hidden"); prev.removeAttribute("src"); }
+  $("save-product").textContent = "Save Changes";
+  $("product-form-title").textContent = "Edit Product";
+  $("cancel-edit").classList.remove("hidden");
+  window.scrollTo({ top: document.body.scrollHeight * 0.4, behavior: "smooth" });
+}
+
+$("product-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("form-error").textContent = ""; $("form-msg").textContent = "";
+  const title = $("p-title").value.trim();
+  const brand = $("p-brand").value.trim();
+  const price = $("p-price").value;
+  const sizes = $("p-sizes").value;
+  const stock = $("p-stock").value;
+  if (!title || !brand || price === "") { $("form-error").textContent = "Title, brand and price are required."; return; }
+  const fd = new FormData();
+  fd.append("title", title);
+  fd.append("brand", brand);
+  fd.append("price", price);
+  fd.append("sizes", sizes);
+  fd.append("stock", stock);
+  const file = $("p-image").files[0];
+  if (file) fd.append("image", file);
+  const btn = $("save-product"); btn.disabled = true;
+  try {
+    if (editingId) {
+      await api(`/products/${editingId}`, { method: "PUT", body: fd });
+      $("form-msg").textContent = "Product updated successfully.";
+    } else {
+      await api(`/products`, { method: "POST", body: fd });
+      $("form-msg").textContent = "Product added successfully.";
+    }
+    resetProductForm();
+    loadProducts();
+  } catch (err) { $("form-error").textContent = err.message; }
+  finally { btn.disabled = false; }
+});
+
+async function deleteProduct(id) {
+  if (!confirm("Delete this product?")) return;
+  try { await api(`/products/${id}`, { method: "DELETE" }); toast("Product deleted"); loadProducts(); }
+  catch (err) { alert(err.message); }
+}
+
+const REVIEWS_KEY = "soleworks_reviews";
+
+function loadSavedReviewsAdmin() {
+  try {
+    const raw = localStorage.getItem(REVIEWS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+
+function saveReviewsAdmin(list) {
+  try { localStorage.setItem(REVIEWS_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+async function loadReviewsAdmin() {
+  renderReviewsAdmin(loadSavedReviewsAdmin());
+}
+
+function renderReviewsAdmin(reviews) {
+  const list = $("reviews-list");
+  list.innerHTML = "";
+  $("reviews-empty").classList.toggle("hidden", reviews.length !== 0);
+  reviews.forEach((r, idx) => {
+    const stars = "&#9733;".repeat(Math.min(5, Math.max(1, Number(r.rating) || 5)));
+    const row = document.createElement("div");
+    row.className = "p-4 flex flex-col sm:flex-row sm:items-start gap-4";
+    row.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+          <span class="font-semibold">${esc(r.name || "Anonymous")}</span>
+          ${r.city ? `<span class="text-xs px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300">${esc(r.city)}</span>` : ""}
+          <span class="text-amber-400 text-sm">${stars}</span>
+        </div>
+        <p class="text-sm text-neutral-300 break-words">${esc(r.text || "")}</p>
+      </div>
+      <div class="shrink-0">
+        <button data-review-del="${idx}" class="rounded-lg border border-red-500/40 text-red-300 px-3 py-2.5 min-h-[44px] text-sm hover:bg-red-500/10 transition">Delete</button>
+      </div>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll("[data-review-del]").forEach(b => b.addEventListener("click", () => deleteReviewAdmin(Number(b.dataset.reviewDel))));
+}
+
+function deleteReviewAdmin(index) {
+  const reviews = loadSavedReviewsAdmin();
+  if (index < 0 || index >= reviews.length) return;
+  if (!confirm("Delete this review?")) return;
+  reviews.splice(index, 1);
+  saveReviewsAdmin(reviews);
+  renderReviewsAdmin(reviews);
+  toast("Review deleted");
+}
+
+$("refresh-reviews").addEventListener("click", loadReviewsAdmin);
+$("clear-reviews").addEventListener("click", () => {
+  const reviews = loadSavedReviewsAdmin();
+  if (!reviews.length) return toast("No saved reviews to clear");
+  if (!confirm("Delete all saved reviews?")) return;
+  saveReviewsAdmin([]);
+  renderReviewsAdmin([]);
+  toast("All saved reviews deleted");
+});
+
+// Auto-login if token/cookie exists
+(function init() {
+  const cookieToken = document.cookie.split('; ').find(r => r.startsWith('admin_token='));
+  if (!getToken() && cookieToken) { setToken(decodeURIComponent(cookieToken.split('=')[1] || "")); }
+  if (getToken()) showDashboard(); else showLogin();
+})();
+</script>
+</body>
+</html>
