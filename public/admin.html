@@ -144,12 +144,13 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm text-neutral-300 mb-1">Product Image</label>
+              <label class="block text-sm text-neutral-300 mb-1">Product Images</label>
               <div class="flex items-center gap-3 flex-wrap">
-                <input id="p-image" type="file" accept="image/png,image/jpeg,image/webp" class="hidden">
-                <button type="button" id="p-browse" class="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800 transition">Choose Image</button>
-                <span id="p-filename" class="text-sm text-neutral-400">No file selected</span>
+                <input id="p-image" type="file" name="images" accept="image/png,image/jpeg" multiple class="hidden">
+                <button type="button" id="p-browse" class="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800 transition">Choose Images</button>
+                <span id="p-filename" class="text-sm text-neutral-400">No files selected</span>
               </div>
+              <p class="text-xs text-neutral-500 mt-1">Select multiple JPG/PNG images. The first image is used as the product card thumbnail.</p>
               <img id="p-preview" class="hidden mt-3 h-20 w-20 object-cover rounded-lg border border-neutral-700" alt="Preview">
             </div>
             <div class="flex gap-2 pt-2">
@@ -386,7 +387,8 @@ function renderProducts(products) {
   list.innerHTML = "";
   $("products-empty").classList.toggle("hidden", products.length !== 0);
   products.forEach(p => {
-    const img = firstProductImage(p);
+    const images = productImages(p);
+    const img = images[0] || "";
     const inStock = Number(p.stock) > 0;
     const row = document.createElement("div");
     row.className = "p-4 flex flex-col sm:flex-row sm:items-center gap-4";
@@ -398,7 +400,7 @@ function renderProducts(products) {
           <span class="text-xs px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300">${esc(p.brand)}</span>
           <span class="text-xs px-2 py-0.5 rounded-full ${inStock ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/15 text-red-300 border border-red-500/30'}">${inStock ? 'In Stock' : 'Out of Stock'}</span>
         </div>
-        <div class="text-sm text-neutral-400 mt-1">${money(p.price)} · Sizes: ${esc((p.sizes||[]).join(', ') || '-')}</div>
+        <div class="text-sm text-neutral-400 mt-1">${money(p.price)} · Sizes: ${esc((p.sizes||[]).join(', ') || '-')} · Images: ${images.length}</div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <button data-edit="${p.id}" class="rounded-lg border border-neutral-700 px-3 py-2.5 min-h-[44px] text-sm hover:bg-neutral-800 transition">Edit</button>
@@ -413,11 +415,11 @@ function renderProducts(products) {
 $("refresh-products").addEventListener("click", loadProducts);
 $("p-browse").addEventListener("click", () => $("p-image").click());
 $("p-image").addEventListener("change", () => {
-  const f = $("p-image").files[0];
-  if (!f) return;
-  $("p-filename").textContent = f.name;
+  const files = Array.from($("p-image").files || []);
+  if (!files.length) return;
+  $("p-filename").textContent = files.length === 1 ? files[0].name : files.length + " images selected";
   const prev = $("p-preview");
-  prev.src = URL.createObjectURL(f);
+  prev.src = URL.createObjectURL(files[0]);
   prev.classList.remove("hidden");
 });
 
@@ -425,7 +427,7 @@ function resetProductForm() {
   editingId = null;
   $("product-form").reset();
   $("p-stock").value = "1";
-  $("p-filename").textContent = "No file selected";
+  $("p-filename").textContent = "No files selected";
   $("p-preview").classList.add("hidden");
   $("p-preview").removeAttribute("src");
   $("save-product").textContent = "Add Product";
@@ -444,7 +446,10 @@ function editProduct(id) {
   $("p-price").value = p.price != null ? p.price : "";
   $("p-sizes").value = (p.sizes || []).join(", ");
   $("p-stock").value = Number(p.stock) > 0 ? "1" : "0";
-  $("p-filename").textContent = firstProductImage(p) ? "Keep current image (choose new to replace)" : "No file selected";
+  const currentImages = productImages(p);
+  $("p-filename").textContent = currentImages.length
+    ? currentImages.length + " current image(s) - choose new to replace"
+    : "No files selected";
   const prev = $("p-preview");
   const currentImage = firstProductImage(p);
   if (currentImage) { prev.src = currentImage; prev.classList.remove("hidden"); }
@@ -470,8 +475,8 @@ $("product-form").addEventListener("submit", async (e) => {
   fd.append("price", price);
   fd.append("sizes", sizes);
   fd.append("stock", stock);
-  const file = $("p-image").files[0];
-  if (file) fd.append("image", file);
+  const files = Array.from($("p-image").files || []);
+  files.forEach((file) => fd.append("images", file));
   const btn = $("save-product"); btn.disabled = true;
   try {
     if (editingId) {

@@ -844,8 +844,6 @@
   var searchTerm = "";
   var activeBrand = "";
   var qvProduct = null;     // product currently in quick view
-  var qvSize = null;
-  var qvQty = 1;
   var qvImage = 0;
 
   var grid = $("grid");
@@ -894,7 +892,31 @@
   }
   function firstImage(p) {
     var images = normalizeImages(p);
-    return images.length ? safeImage(images[0]) : "";
+    for (var i = 0; i < images.length; i++) {
+      var src = safeImage(images[i]);
+      if (src) return src;
+    }
+    return "";
+  }
+  function productSizes(p) {
+    var raw = p && p.sizes;
+    if (!raw) return [];
+    if (typeof raw === "string") {
+      try { raw = JSON.parse(raw); } catch (e) { raw = [raw]; }
+    }
+    if (!Array.isArray(raw)) raw = [raw];
+    return raw.map(function (s) {
+      return String(s == null ? "" : s).trim();
+    }).filter(Boolean);
+  }
+  function productSize(p) {
+    var sizes = productSizes(p);
+    return sizes.length ? sizes[0] : "One Size";
+  }
+  function cartItemSize(item) {
+    var product = products.find(function (p) { return String(p.id) === String(item.id); });
+    if (product) return productSize(product);
+    return item.size == null || String(item.size).trim() === "" ? "One Size" : String(item.size);
   }
   function stockInfo(p) {
     var stock = Number(p && p.stock);
@@ -955,15 +977,7 @@
     var html = "";
     list.forEach(function (p) {
       var img = firstImage(p);
-      var sizes = p.sizes || [];
-      var sizeChips = "";
-      if (sizes.length === 0) {
-        sizeChips = '<span class="one-size">One Size</span>';
-      } else {
-        sizes.forEach(function (s, i) {
-          sizeChips += '<button class="size-chip' + (i === 0 ? " active" : "") + '" data-s="' + escapeHtml(s) + '">' + escapeHtml(s) + "</button>";
-        });
-      }
+      var sizeLabel = productSize(p);
       var pendingBadge = (p.has_pending_order === true && Number(p.stock) > 0)
         ? '<div class="pending-badge">⏳ In Checkout (Unconfirmed)</div>'
         : "";
@@ -979,7 +993,7 @@
             '<div class="title" role="button" tabindex="0">' + escapeHtml(p.title) + "</div>" +
             '<div class="price">' + money(p.price) + "</div>" +
             pendingBadge +
-            '<div class="sizes">' + sizeChips + "</div>" +
+            '<div class="sizes"><span class="one-size">Size: ' + escapeHtml(sizeLabel) + "</span></div>" +
             '<button class="add-btn" data-id="' + p.id + '"' + (stockInfo(p).cls === "out" ? " disabled" : "") + ">" +
               (stockInfo(p).cls === "out" ? "Sold Out" : "Add to Cart") + "</button>" +
           "</div>" +
@@ -1026,7 +1040,6 @@
     var p = products.find(function (x) { return String(x.id) === String(id); });
     if (!p) return;
     qvProduct = p;
-    qvQty = 1;
     qvImage = 0;
 
     var images = normalizeImages(p).map(safeImage).filter(Boolean);
@@ -1037,13 +1050,7 @@
     });
 
     var stock = stockInfo(p);
-    var sizes = p.sizes || [];
-    var sizeChips = "";
-    sizes.forEach(function (s, i) {
-      sizeChips += '<button class="size-chip' + (i === 0 ? " active" : "") + '" data-s="' + escapeHtml(s) + '">' + escapeHtml(s) + "</button>";
-    });
-    if (!sizes.length) sizeChips = '<span class="one-size">One Size</span>';
-    qvSize = sizes.length ? String(sizes[0]) : "One Size";
+    var sizeLabel = productSize(p);
 
     $("gallery-main").innerHTML =
       '<img id="gallery-img" src="' + escapeHtml(images[0] || "") + '" alt="' + escapeHtml(p.title) + '" ' +
@@ -1061,39 +1068,26 @@
       '<div class="modal-price">' + money(p.price) + "</div>" +
       pendingBadge +
       '<div class="stock ' + stock.cls + '"><span class="dot"></span>' + stock.text + "</div>" +
-      (sizes.length ? '<span class="modal-label">Select Size</span><div class="sizes" id="qv-sizes">' + sizeChips + "</div>" : "") +
-      '<span class="modal-label">Quantity</span>' +
-      '<div class="modal-qty"><div class="qty"><button id="qv-dec" aria-label="Decrease">&minus;</button><span id="qv-qty">1</span><button id="qv-inc" aria-label="Increase">+</button></div></div>' +
+      '<span class="modal-label">Size</span>' +
+      '<div class="sizes"><span class="one-size">' + escapeHtml(sizeLabel) + "</span></div>" +
       '<div class="modal-btns">' +
         '<button class="btn-add" id="qv-add" ' + (out ? "disabled" : "") + ">" + (out ? "Sold Out" : "Add to Cart") + "</button>" +
         '<button class="btn-buy" id="qv-buy" ' + (out ? "disabled" : "") + ">" + (out ? "Sold Out" : "Buy It Now") + "</button>" +
       "</div>";
 
-    if (sizes.length) {
-      $("gallery-thumbs").querySelectorAll("button").forEach(function (b) {
-        b.addEventListener("click", function () {
-          qvImage = Number(b.dataset.i);
-          $("gallery-thumbs").querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
-          b.classList.add("active");
-          $("gallery-img").src = images[qvImage];
-        });
+    $("gallery-thumbs").querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        qvImage = Number(b.dataset.i);
+        $("gallery-thumbs").querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active");
+        $("gallery-img").src = images[qvImage];
       });
-      $("qv-sizes").querySelectorAll(".size-chip").forEach(function (chip) {
-        chip.addEventListener("click", function () {
-          $("qv-sizes").querySelectorAll(".size-chip").forEach(function (c) { c.classList.remove("active"); });
-          chip.classList.add("active");
-          qvSize = chip.textContent;
-        });
-      });
-    }
-    $("qv-dec").addEventListener("click", function () { qvQty = Math.max(1, qvQty - 1); qvQtyEl(); });
-    $("qv-inc").addEventListener("click", function () { qvQty = Math.min(20, qvQty + 1); qvQtyEl(); });
-    function qvQtyEl() { $("qv-qty").textContent = qvQty; }
+    });
     $("qv-add").addEventListener("click", function () {
-      addToCart(p.id, qvQty, qvSizeCheck(), true);
+      addToCart(p.id, 1, sizeLabel, true);
     });
     $("qv-buy").addEventListener("click", function () {
-      addToCart(p.id, qvQty, qvSizeCheck(), true);
+      addToCart(p.id, 1, sizeLabel, true);
       closeQuickView();
       openDrawer();
       openCheckoutView();
@@ -1102,10 +1096,6 @@
     modal.classList.add("open");
     overlay.classList.add("open");
     setLocked(true);
-  }
-
-  function qvSizeCheck() {
-    return qvSize || "One Size";
   }
 
   function closeQuickView() {
@@ -1234,13 +1224,16 @@
     var product = products.find(function (p) { return String(p.id) === String(id); });
     if (!product) return;
 
-    var hasSizes = product.sizes && product.sizes.length > 0;
-    if (size == null) size = hasSizes ? String(product.sizes[0]) : "One Size";
     if (stockInfo(product).cls === "out") { toast("Sorry, this item is sold out"); return; }
 
     qty = 1; // strictly one pair per product
-    var existing = cart.find(function (it) { return it.id === product.id && it.size === size; });
+    size = productSize(product);
+    var existing = cart.find(function (it) { return String(it.id) === String(product.id); });
     if (existing) {
+      existing.size = size;
+      existing.qty = 1;
+      saveCart();
+      renderCart();
       toast("Item is already in your cart");
       if (!silent) openDrawer();
       return;
@@ -1279,13 +1272,14 @@
 
     var html = "";
     cart.forEach(function (it, i) {
+      var sizeLabel = cartItemSize(it);
       html +=
         '<div class="cart-item">' +
           (it.image ? '<img src="' + escapeHtml(it.image) + '" alt="">' : '<div style="width:72px;height:88px;border-radius:10px;background:#161616"></div>') +
           '<div>' +
             '<div class="name">' + escapeHtml(it.title) + "</div>" +
-            '<div class="sub">' + escapeHtml(it.brand) + " Â· " + escapeHtml(it.size) + "</div>" +
-            "<div>Size: " + escapeHtml(it.size) + "</div>" +
+            '<div class="sub">' + escapeHtml(it.brand) + "</div>" +
+            "<div>Size: " + escapeHtml(sizeLabel) + "</div>" +
           "</div>" +
           '<div class="right">' +
             '<button class="remove-btn" data-i="' + i + '">Remove</button>' +
@@ -1310,11 +1304,11 @@
       var r = localStorage.getItem("soleworks_cart");
       if (r) cart = JSON.parse(r) || [];
     } catch (e) { cart = []; }
-    // Collapse legacy duplicate entries (same product + size) into one, qty strictly 1.
+    // Collapse legacy duplicate entries (same product) into one, qty strictly 1.
     var seen = {};
     cart = cart.filter(function (it) {
       if (!it || String(it.qty) !== "1") return false;          // anything not a single pair is dropped
-      var key = String(it.id) + "|" + String(it.size == null ? "" : it.size);
+      var key = String(it.id);
       if (seen[key]) return false;                               // drop duplicates
       seen[key] = true;
       return true;
@@ -1343,7 +1337,7 @@
     var method = selectedPaymentMethod();
     var del = deliveryChargeFor(method);
     var summary = cart.map(function (it) {
-      return '<div class="row"><span>' + escapeHtml(it.title) + " Ã— " + it.qty + " Â· " + escapeHtml(it.size) + "</span><span>" + money(it.price * it.qty) + "</span></div>";
+      return '<div class="row"><span>' + escapeHtml(it.title) + " Ã— " + it.qty + " Â· Size: " + escapeHtml(cartItemSize(it)) + "</span><span>" + money(it.price * it.qty) + "</span></div>";
     }).join("");
     summary += '<div class="row" style="margin-top:6px;padding-top:6px;border-top:1px solid #333333;"><span>Subtotal</span><span>' + money(sub) + "</span></div>";
     summary += '<div class="row"><span>Delivery Charges</span><span>' + money(del) + "</span></div>";
@@ -1443,7 +1437,7 @@
     err.textContent = "";
 
     var items = cart.map(function (it) {
-      return { title: it.title, brand: it.brand, size: it.size, quantity: it.qty, price: it.price, product_id: it.id };
+      return { title: it.title, brand: it.brand, size: cartItemSize(it), quantity: 1, price: it.price, product_id: it.id };
     });
 
     var payload = {

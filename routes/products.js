@@ -2,7 +2,7 @@ const express = require("express");
 const db = require("../db");
 const authenticate = require("../middleware/auth");
 const upload = require("../middleware/upload");
-const { inspectUploadedImage, fileToDataUrl } = require("../middleware/upload");
+const { inspectUploadedImage, fileToDataUrl, MAX_IMAGE_FILES } = require("../middleware/upload");
 
 const router = express.Router();
 
@@ -51,7 +51,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.post("/", authenticate, upload.single("image"), inspectUploadedImage, async (req, res) => {
+router.post("/", authenticate, upload.array("images", MAX_IMAGE_FILES), inspectUploadedImage, async (req, res) => {
   try {
     const title = String(req.body.title || "").trim();
     const brand = String(req.body.brand || "").trim();
@@ -71,7 +71,9 @@ router.post("/", authenticate, upload.single("image"), inspectUploadedImage, asy
     }
 
     const sizes = parseSizes(req.body.sizes);
-    const images = req.file ? [fileToDataUrl(req.file)] : [];
+    const images = Array.isArray(req.files)
+      ? req.files.map(fileToDataUrl).filter(Boolean)
+      : [];
     const stockVal = req.body.stock;
     const stock = stockVal === undefined || stockVal === null || stockVal === ""
       ? 1
@@ -92,7 +94,7 @@ router.post("/", authenticate, upload.single("image"), inspectUploadedImage, asy
   }
 });
 
-router.put("/:id", authenticate, upload.single("image"), inspectUploadedImage, async (req, res) => {
+router.put("/:id", authenticate, upload.array("images", MAX_IMAGE_FILES), inspectUploadedImage, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ message: "Invalid product id." });
@@ -127,8 +129,8 @@ router.put("/:id", authenticate, upload.single("image"), inspectUploadedImage, a
     }
 
     let images = Array.isArray(existing[0].images) ? existing[0].images.slice() : [];
-    if (req.file) {
-      images = [fileToDataUrl(req.file)];
+    if (Array.isArray(req.files) && req.files.length > 0) {
+      images = req.files.map(fileToDataUrl).filter(Boolean);
     }
 
     const stockVal = req.body.stock;
