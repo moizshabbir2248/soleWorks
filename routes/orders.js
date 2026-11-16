@@ -202,16 +202,10 @@ router.post("/", async (req, res) => {
       if (qty !== 1) throw httpError(400, "Each product allows a maximum quantity of 1.");
 
       const sizes = Array.isArray(product.sizes) ? product.sizes : [];
-      let size;
-      if (sizes.length > 0) {
-        const sizeNum = Number(item.size);
-        if (!Number.isInteger(sizeNum) || !sizes.some((s) => Number(s) === sizeNum)) {
-          throw httpError(400, `Size ${item.size} is not available for product "${product.title}".`);
-        }
-        size = sizeNum;
-      } else {
-        size = item.size == null || String(item.size).trim() === "" ? "One Size" : String(item.size).trim().slice(0, 20);
-      }
+      const rawSize = item.size == null ? "" : String(item.size).trim();
+      const size = rawSize
+        ? rawSize.slice(0, 20)
+        : (sizes.length > 0 ? String(sizes[0]) : "One Size");
 
       const unitPrice = Number(product.price);
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
