@@ -867,16 +867,34 @@
     var v = Number(n) || 0;
     return "Rs. " + v.toLocaleString("en-PK", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
+  function normalizeImages(p) {
+    var raw = p && p.images;
+    if (!raw) return [];
+    if (typeof raw === "string") {
+      try { raw = JSON.parse(raw); } catch (e) { raw = [raw]; }
+    }
+    if (!Array.isArray(raw)) raw = [raw];
+    return raw.map(function (item) {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") return item.url || item.src || item.path || "";
+      return "";
+    }).filter(Boolean);
+  }
   function safeImage(url) {
     if (!url) return "";
-    if (url.indexOf("/uploads/") === 0) return url;
+    var value = String(url).trim();
+    if (!value) return "";
+    if (value.indexOf("/uploads/") === 0) return value;
+    if (/^data:image\//i.test(value)) return value;
+    if (/^blob:/i.test(value)) return value;
     try {
-      var u = new URL(url, window.location.origin);
-      return (u.protocol === "http:" || u.protocol === "https:") ? url : "";
+      var u = new URL(value, window.location.origin);
+      return (u.protocol === "http:" || u.protocol === "https:") ? value : "";
     } catch (e) { return ""; }
   }
   function firstImage(p) {
-    return p.images && p.images.length ? safeImage(p.images[0]) : "";
+    var images = normalizeImages(p);
+    return images.length ? safeImage(images[0]) : "";
   }
   function stockInfo(p) {
     var stock = Number(p && p.stock);
@@ -1011,7 +1029,7 @@
     qvQty = 1;
     qvImage = 0;
 
-    var images = (p.images || []).map(safeImage).filter(Boolean);
+    var images = normalizeImages(p).map(safeImage).filter(Boolean);
 
     var thumbs = "";
     images.forEach(function (src, i) {

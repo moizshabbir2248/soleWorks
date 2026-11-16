@@ -214,6 +214,23 @@ function setToken(token) { localStorage.setItem("admin_token", token); document.
 function clearToken() { localStorage.removeItem("admin_token"); document.cookie = "admin_token=; path=/; max-age=0"; }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
 function money(n) { const v = Number(n)||0; return "Rs. " + v.toLocaleString("en-PK", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+function productImages(p) {
+  let raw = p && p.images;
+  if (!raw) return [];
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch (e) { raw = [raw]; }
+  }
+  if (!Array.isArray(raw)) raw = [raw];
+  return raw.map(item => {
+    if (typeof item === "string") return item;
+    if (item && typeof item === "object") return item.url || item.src || item.path || "";
+    return "";
+  }).filter(Boolean);
+}
+function firstProductImage(p) {
+  const imgs = productImages(p);
+  return imgs.length ? imgs[0] : "";
+}
 
 function showDashboard() {
   $("login-view").classList.add("hidden");
@@ -369,7 +386,7 @@ function renderProducts(products) {
   list.innerHTML = "";
   $("products-empty").classList.toggle("hidden", products.length !== 0);
   products.forEach(p => {
-    const img = (p.images && p.images[0]) || "";
+    const img = firstProductImage(p);
     const inStock = Number(p.stock) > 0;
     const row = document.createElement("div");
     row.className = "p-4 flex flex-col sm:flex-row sm:items-center gap-4";
@@ -427,9 +444,10 @@ function editProduct(id) {
   $("p-price").value = p.price != null ? p.price : "";
   $("p-sizes").value = (p.sizes || []).join(", ");
   $("p-stock").value = Number(p.stock) > 0 ? "1" : "0";
-  $("p-filename").textContent = (p.images && p.images[0]) ? "Keep current image (choose new to replace)" : "No file selected";
+  $("p-filename").textContent = firstProductImage(p) ? "Keep current image (choose new to replace)" : "No file selected";
   const prev = $("p-preview");
-  if (p.images && p.images[0]) { prev.src = p.images[0]; prev.classList.remove("hidden"); }
+  const currentImage = firstProductImage(p);
+  if (currentImage) { prev.src = currentImage; prev.classList.remove("hidden"); }
   else { prev.classList.add("hidden"); prev.removeAttribute("src"); }
   $("save-product").textContent = "Save Changes";
   $("product-form-title").textContent = "Edit Product";
