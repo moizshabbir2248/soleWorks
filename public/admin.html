@@ -112,6 +112,72 @@
         <div id="orders-empty" class="hidden px-5 py-10 text-center text-neutral-400">No orders yet.</div>
       </section>
 
+      <!-- Coupons -->
+      <section class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <div class="xl:col-span-2 bg-neutral-900 border border-neutral-800 rounded-2xl p-5 h-fit">
+          <h2 class="text-lg font-semibold mb-1">Add Coupon</h2>
+          <p class="text-sm text-neutral-400 mb-4">Create discount codes with expiry and minimum order rules</p>
+          <form id="coupon-form" class="space-y-3">
+            <div>
+              <label class="block text-sm text-neutral-300 mb-1" for="c-code">Coupon Code</label>
+              <input id="c-code" type="text" autocomplete="off"
+                class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="SAVE10">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="c-type">Discount Type</label>
+                <select id="c-type" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="fixed">Fixed Amount (PKR)</option>
+                  <option value="percentage">Percentage (%)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="c-value">Discount Value</label>
+                <input id="c-value" type="number" min="0.01" step="0.01"
+                  class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="500">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="c-min">Minimum Order (PKR)</label>
+                <input id="c-min" type="number" min="0" step="0.01"
+                  class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="0">
+              </div>
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="c-expires">Expiry Date &amp; Time</label>
+                <input id="c-expires" type="datetime-local"
+                  class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-neutral-300">
+              <input id="c-active" type="checkbox" checked
+                class="h-4 w-4 rounded border-neutral-700 bg-neutral-950 accent-emerald-500">
+              Active coupon
+            </label>
+            <button id="save-coupon" type="submit"
+              class="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold py-2.5 transition">Add Coupon</button>
+            <p id="coupon-form-msg" class="text-sm text-emerald-400 min-h-[1.25rem]"></p>
+            <p id="coupon-form-error" class="text-sm text-red-400 min-h-[1.25rem]"></p>
+          </form>
+        </div>
+
+        <div class="xl:col-span-3 bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+          <div class="px-5 py-4 border-b border-neutral-800 flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Coupons</h2>
+              <p class="text-sm text-neutral-400"><span id="coupon-count">0</span> coupons</p>
+            </div>
+            <button id="refresh-coupons" class="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-4 py-2 text-sm font-medium transition">Refresh</button>
+          </div>
+          <div id="coupons-error" class="px-5 pt-3 text-sm text-red-400 min-h-[1.25rem]"></div>
+          <div id="coupon-list" class="divide-y divide-neutral-800"></div>
+          <div id="coupons-empty" class="hidden px-5 py-10 text-center text-neutral-400">No coupons yet.</div>
+        </div>
+      </section>
+
       <!-- Products -->
       <section class="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div class="xl:col-span-2 bg-neutral-900 border border-neutral-800 rounded-2xl p-5 h-fit">
@@ -135,6 +201,20 @@
             <div>
               <label class="block text-sm text-neutral-300 mb-1" for="p-sizes">Sizes (comma separated)</label>
               <input id="p-sizes" type="text" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="7, 8, 9, 10">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="p-size-eu">Size (EU)</label>
+                <input id="p-size-eu" type="text" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="42">
+              </div>
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="p-size-us-uk">Size (US / UK)</label>
+                <input id="p-size-us-uk" type="text" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="8.5">
+              </div>
+              <div>
+                <label class="block text-sm text-neutral-300 mb-1" for="p-insole-cm">Insole (CM)</label>
+                <input id="p-insole-cm" type="text" class="w-full rounded-lg bg-neutral-950 border border-neutral-700 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="27">
+              </div>
             </div>
             <div>
               <label class="block text-sm text-neutral-300 mb-1" for="p-stock">Stock Status</label>
@@ -201,6 +281,7 @@ const API = "/api";
 const $ = (id) => document.getElementById(id);
 const STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
 let productsCache = [];
+let couponsCache = [];
 let editingId = null;
 
 function toast(msg) {
@@ -242,7 +323,7 @@ function showLogin() {
   $("dashboard-view").classList.add("hidden");
   $("login-view").classList.remove("hidden");
 }
-async function loadAll() { await Promise.all([loadOrders(), loadProducts(), loadReviewsAdmin()]); }
+async function loadAll() { await Promise.all([loadOrders(), loadCoupons(), loadProducts(), loadReviewsAdmin()]); }
 
 async function api(path, opts = {}) {
   const headers = Object.assign({}, opts.headers || {});
@@ -372,6 +453,131 @@ function renderOrders(orders) {
 
 $("refresh-orders").addEventListener("click", loadOrders);
 
+function couponTypeLabel(coupon) {
+  const value = Number(coupon.discount_value) || 0;
+  return String(coupon.discount_type).toLowerCase() === "percentage"
+    ? value + "% off"
+    : money(value) + " off";
+}
+
+function couponExpiryLabel(value) {
+  if (!value) return "No expiry";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Invalid expiry" : date.toLocaleString();
+}
+
+async function loadCoupons() {
+  $("coupons-error").textContent = "";
+  try {
+    const data = await api("/orders/coupons");
+    couponsCache = data.coupons || [];
+    renderCoupons(couponsCache);
+  } catch (err) { $("coupons-error").textContent = err.message; }
+}
+
+function renderCoupons(coupons) {
+  $("coupon-count").textContent = String(coupons.length);
+  const list = $("coupon-list");
+  list.innerHTML = "";
+  $("coupons-empty").classList.toggle("hidden", coupons.length !== 0);
+  coupons.forEach(c => {
+    const active = c.active === true;
+    const minOrder = Number(c.min_order_amount) || 0;
+    const row = document.createElement("div");
+    row.className = "p-4 flex flex-col sm:flex-row sm:items-center gap-4";
+    row.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="font-semibold truncate">${esc(c.code)}</h3>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300">${esc(couponTypeLabel(c))}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${active ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}">${active ? 'Active' : 'Inactive'}</span>
+        </div>
+        <div class="text-sm text-neutral-400 mt-1">Min order: ${money(minOrder)} · Expires: ${esc(couponExpiryLabel(c.expires_at))}</div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button data-coupon-toggle="${c.id}" class="rounded-lg border border-neutral-700 px-3 py-2.5 min-h-[44px] text-sm hover:bg-neutral-800 transition">${active ? 'Deactivate' : 'Activate'}</button>
+        <button data-coupon-del="${c.id}" class="rounded-lg border border-red-500/40 text-red-300 px-3 py-2.5 min-h-[44px] text-sm hover:bg-red-500/10 transition">Delete</button>
+      </div>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll("[data-coupon-toggle]").forEach(b => b.addEventListener("click", () => {
+    const coupon = couponsCache.find(x => Number(x.id) === Number(b.dataset.couponToggle));
+    if (coupon) toggleCoupon(coupon.id, !(coupon.active === true));
+  }));
+  list.querySelectorAll("[data-coupon-del]").forEach(b => b.addEventListener("click", () => deleteCoupon(Number(b.dataset.couponDel))));
+}
+
+async function toggleCoupon(id, active) {
+  try {
+    await api(`/orders/coupons/${id}/status`, { method: "PUT", body: JSON.stringify({ active }) });
+    toast(active ? "Coupon activated" : "Coupon deactivated");
+    loadCoupons();
+  } catch (err) { alert(err.message); }
+}
+
+async function deleteCoupon(id) {
+  if (!confirm("Delete this coupon?")) return;
+  try {
+    await api(`/orders/coupons/${id}`, { method: "DELETE" });
+    toast("Coupon deleted");
+    loadCoupons();
+  } catch (err) { alert(err.message); }
+}
+
+$("refresh-coupons").addEventListener("click", loadCoupons);
+
+function resetCouponForm() {
+  $("coupon-form").reset();
+  $("c-active").checked = true;
+  $("coupon-form-error").textContent = "";
+  $("coupon-form-msg").textContent = "";
+}
+
+$("coupon-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("coupon-form-error").textContent = "";
+  $("coupon-form-msg").textContent = "";
+  const code = $("c-code").value.trim().toUpperCase();
+  const discountType = $("c-type").value;
+  const discountValue = $("c-value").value;
+  const minOrder = $("c-min").value;
+  const expires = $("c-expires").value;
+  const active = $("c-active").checked;
+  if (!code || discountValue === "") {
+    $("coupon-form-error").textContent = "Coupon code and discount value are required.";
+    return;
+  }
+  let expiresAt = null;
+  if (expires) {
+    const parsed = new Date(expires);
+    if (Number.isNaN(parsed.getTime())) {
+      $("coupon-form-error").textContent = "Expiry date is invalid.";
+      return;
+    }
+    expiresAt = parsed.toISOString();
+  }
+  const payload = {
+    code,
+    discount_type: discountType,
+    discount_value: discountValue,
+    min_order_amount: minOrder === "" ? 0 : minOrder,
+    expires_at: expiresAt,
+    active
+  };
+  const btn = $("save-coupon");
+  btn.disabled = true;
+  try {
+    await api("/orders/coupons", { method: "POST", body: JSON.stringify(payload) });
+    resetCouponForm();
+    $("coupon-form-msg").textContent = "Coupon added successfully.";
+    loadCoupons();
+  } catch (err) {
+    $("coupon-form-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 async function loadProducts() {
   $("products-error").textContent = "";
   try {
@@ -445,6 +651,9 @@ function editProduct(id) {
   $("p-brand").value = p.brand || "";
   $("p-price").value = p.price != null ? p.price : "";
   $("p-sizes").value = (p.sizes || []).join(", ");
+  $("p-size-eu").value = p.size_eu != null ? p.size_eu : "";
+  $("p-size-us-uk").value = p.size_us_uk != null ? p.size_us_uk : "";
+  $("p-insole-cm").value = p.insole_cm != null ? p.insole_cm : "";
   $("p-stock").value = Number(p.stock) > 0 ? "1" : "0";
   const currentImages = productImages(p);
   $("p-filename").textContent = currentImages.length
@@ -467,6 +676,9 @@ $("product-form").addEventListener("submit", async (e) => {
   const brand = $("p-brand").value.trim();
   const price = $("p-price").value;
   const sizes = $("p-sizes").value;
+  const sizeEu = $("p-size-eu").value.trim();
+  const sizeUsUk = $("p-size-us-uk").value.trim();
+  const insoleCm = $("p-insole-cm").value.trim();
   const stock = $("p-stock").value;
   if (!title || !brand || price === "") { $("form-error").textContent = "Title, brand and price are required."; return; }
   const fd = new FormData();
@@ -474,6 +686,9 @@ $("product-form").addEventListener("submit", async (e) => {
   fd.append("brand", brand);
   fd.append("price", price);
   fd.append("sizes", sizes);
+  fd.append("size_eu", sizeEu);
+  fd.append("size_us_uk", sizeUsUk);
+  fd.append("insole_cm", insoleCm);
   fd.append("stock", stock);
   const files = Array.from($("p-image").files || []);
   files.forEach((file) => fd.append("images", file));

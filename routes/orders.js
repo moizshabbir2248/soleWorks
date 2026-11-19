@@ -27,6 +27,78 @@ function stringField(value, maxLen) {
   return value != null ? String(value).trim().slice(0, maxLen) : "";
 }
 
+function roundMoney(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+function formatMoney(value) {
+  return "Rs. " + Number(value || 0).toLocaleString("en-PK", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+function normalizeCouponCode(value) {
+  return stringField(value, 60).toUpperCase();
+}
+
+function couponDiscountFor(coupon, subtotal) {
+  const type = String(coupon.discount_type || "").toLowerCase();
+  const value = Number(coupon.discount_value);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw httpError(500, "Coupon has an invalid discount value.");
+  }
+  if (type !== "fixed" && type !== "percentage") {
+    throw httpError(500, "Coupon has an invalid discount type.");
+  }
+  const rawDiscount = type === "percentage"
+    ? subtotal * Math.min(value, 100) / 100
+    : Math.min(value, subtotal);
+  return roundMoney(Math.max(0, Math.min(rawDiscount, subtotal)));
+}
+
+function validateCouponForSubtotal(coupon, subtotal) {
+  if (!coupon.active) throw httpError(400, "This coupon is not active.");
+  if (coupon.expires_at) {
+    const expires = new Date(coupon.expires_at).getTime();
+    if (!Number.isFinite(expires) || expires <= Date.now()) {
+      throw httpError(400, "This coupon has expired.");
+    }
+  }
+  const minOrder = Number(coupon.min_order_amount) || 0;
+  if (minOrder > 0 && subtotal < minOrder) {
+    throw httpError(400, `Minimum order amount for this coupon is ${formatMoney(minOrder)}.`);
+  }
+  return couponDiscountFor(coupon, subtotal);
+}
+
+let couponsTableReady = null;
+function ensureCouponsTable() {
+  if (!couponsTableReady) {
+    couponsTableReady = (async () => {
+      await db.query(
+        `CREATE TABLE IF NOT EXISTS coupons (
+           id SERIAL PRIMARY KEY,
+           code TEXT UNIQUE NOT NULL,
+           discount_type TEXT NOT NULL CHECK (discount_type IN ('fixed', 'percentage')),
+           discount_value NUMERIC(10,2) NOT NULL CHECK (discount_value > 0),
+           min_order_amount NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (min_order_amount >= 0),
+           expires_at TIMESTAMPTZ,
+           active BOOLEAN NOT NULL DEFAULT TRUE,
+           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         )`
+      );
+      await db.query(
+        "ALTER TABLE coupons ADD COLUMN IF NOT EXISTS min_order_amount NUMERIC(10,2) NOT NULL DEFAULT 0"
+      );
+    })().catch((err) => {
+      couponsTableReady = null;
+      throw err;
+    });
+  }
+  return couponsTableReady;
+}
+
 router.get("/", authenticate, async (req, res) => {
   try {
     const { rows } = await db.query("SELECT * FROM orders ORDER BY created_at DESC");
@@ -34,6 +106,153 @@ router.get("/", authenticate, async (req, res) => {
   } catch (err) {
     console.error("Error fetching orders:", err);
     res.status(500).json({ message: "Failed to fetch orders." });
+  }
+});
+
+router.get("/coupons", authenticate, async (req, res) => {
+  try {
+    await ensureCouponsTable();
+    const { rows } = await db.query("SELECT * FROM coupons ORDER BY created_at DESC");
+    res.json({ coupons: rows });
+  } catch (err) {
+    console.error("Error fetching coupons:", err);
+    res.status(500).json({ message: "Failed to fetch coupons." });
+  }
+});
+
+router.post("/coupons/validate", async (req, res) => {
+  try {
+    await ensureCouponsTable();
+    const body = req.body || {};
+    const code = normalizeCouponCode(body.code);
+    if (!code) throw httpError(400, "Please enter a coupon code.");
+
+    const subtotal = Number(body.subtotal);
+    if (!Number.isFinite(subtotal) || subtotal < 0) {
+      throw httpError(400, "Invalid order subtotal.");
+    }
+
+    const { rows } = await db.query("SELECT * FROM coupons WHERE code = $1", [code]);
+    if (rows.length === 0) throw httpError(400, "Coupon code is invalid.");
+
+    const coupon = rows[0];
+    const discount = validateCouponForSubtotal(coupon, subtotal);
+    res.json({
+      coupon: {
+        code: coupon.code,
+        discount_type: coupon.discount_type,
+        discount_value: Number(coupon.discount_value),
+        min_order_amount: Number(coupon.min_order_amount),
+        expires_at: coupon.expires_at,
+      },
+      discount,
+    });
+  } catch (err) {
+    const statusCode = err && err.statusCode ? err.statusCode : 500;
+    const message = err && err.message ? err.message : "Failed to validate coupon.";
+    if (statusCode >= 500) console.error("Error validating coupon:", err);
+    res.status(statusCode).json({ message });
+  }
+});
+
+router.post("/coupons", authenticate, async (req, res) => {
+  try {
+    await ensureCouponsTable();
+    const body = req.body || {};
+    const code = normalizeCouponCode(body.code);
+    if (!/^[A-Z0-9_-]{2,40}$/.test(code)) {
+      throw httpError(400, "Coupon code must be 2-40 characters using letters, numbers, hyphens or underscores.");
+    }
+
+    const discountType = String(body.discount_type || "").toLowerCase();
+    if (discountType !== "fixed" && discountType !== "percentage") {
+      throw httpError(400, "Discount type must be fixed or percentage.");
+    }
+
+    const discountValue = Number(body.discount_value);
+    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+      throw httpError(400, "Discount value must be greater than zero.");
+    }
+    if (discountType === "percentage" && discountValue > 100) {
+      throw httpError(400, "Percentage discount cannot be greater than 100.");
+    }
+
+    const rawMinOrder = body.min_order_amount;
+    const minOrder = rawMinOrder == null || rawMinOrder === "" ? 0 : Number(rawMinOrder);
+    if (!Number.isFinite(minOrder) || minOrder < 0) {
+      throw httpError(400, "Minimum order amount must be zero or greater.");
+    }
+
+    let expiresAt = null;
+    if (body.expires_at) {
+      const parsedExpiry = new Date(body.expires_at);
+      if (Number.isNaN(parsedExpiry.getTime())) {
+        throw httpError(400, "Expiry date is invalid.");
+      }
+      expiresAt = parsedExpiry.toISOString();
+    }
+
+    const active = body.active === undefined
+      ? true
+      : body.active === true || body.active === "true" || body.active === 1 || body.active === "1";
+
+    const { rows } = await db.query(
+      `INSERT INTO coupons
+         (code, discount_type, discount_value, min_order_amount, expires_at, active)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [code, discountType, roundMoney(discountValue), roundMoney(minOrder), expiresAt, active]
+    );
+    res.status(201).json({ coupon: rows[0] });
+  } catch (err) {
+    if (err && err.code === "23505") {
+      return res.status(400).json({ message: "A coupon with this code already exists." });
+    }
+    const statusCode = err && err.statusCode ? err.statusCode : 500;
+    const message = err && err.message ? err.message : "Failed to create coupon.";
+    if (statusCode >= 500) console.error("Error creating coupon:", err);
+    res.status(statusCode).json({ message });
+  }
+});
+
+router.put("/coupons/:id/status", authenticate, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ message: "Invalid coupon id." });
+  }
+  const active = req.body ? req.body.active : undefined;
+  if (typeof active !== "boolean") {
+    return res.status(400).json({ message: "Active must be true or false." });
+  }
+
+  try {
+    await ensureCouponsTable();
+    const { rows } = await db.query(
+      "UPDATE coupons SET active = $1 WHERE id = $2 RETURNING *",
+      [active, id]
+    );
+    if (rows.length === 0) return res.status(404).json({ message: "Coupon not found." });
+    res.json({ coupon: rows[0] });
+  } catch (err) {
+    console.error("Error updating coupon:", err);
+    res.status(500).json({ message: "Failed to update coupon." });
+  }
+});
+
+router.delete("/coupons/:id", authenticate, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ message: "Invalid coupon id." });
+  }
+
+  try {
+    await ensureCouponsTable();
+    const { rows } = await db.query("DELETE FROM coupons WHERE id = $1 RETURNING id", [id]);
+    if (rows.length === 0) return res.status(404).json({ message: "Coupon not found." });
+    res.json({ deleted: true, id });
+  } catch (err) {
+    console.error("Error deleting coupon:", err);
+    res.status(500).json({ message: "Failed to delete coupon." });
   }
 });
 
@@ -143,6 +362,16 @@ router.put("/:id/status", authenticate, async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
+  const couponCode = normalizeCouponCode(req.body && req.body.coupon_code);
+  if (couponCode) {
+    try {
+      await ensureCouponsTable();
+    } catch (err) {
+      console.error("Error preparing coupon validation:", err);
+      return res.status(500).json({ message: "Failed to prepare coupon validation." });
+    }
+  }
+
   const client = await db.pool.connect();
   try {
     const body = req.body || {};
@@ -227,7 +456,18 @@ router.post("/", async (req, res) => {
     });
 
     subtotal = Math.round(subtotal * 100) / 100;
-    const expectedTotal = Math.round((subtotal + deliveryCharges) * 100) / 100;
+
+    let discount = 0;
+    if (couponCode) {
+      const { rows: couponRows } = await client.query(
+        "SELECT * FROM coupons WHERE code = $1",
+        [couponCode]
+      );
+      if (couponRows.length === 0) throw httpError(400, "Coupon code is invalid.");
+      discount = validateCouponForSubtotal(couponRows[0], subtotal);
+    }
+
+    const expectedTotal = roundMoney(subtotal - discount + deliveryCharges);
     const clientTotal = Number(body.total_amount);
     if (!Number.isFinite(clientTotal) || Math.round(clientTotal * 100) !== Math.round(expectedTotal * 100)) {
       throw httpError(400, "Order total does not match the calculated amount.");
